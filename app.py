@@ -8,7 +8,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-admin_pass = os.getenv("ADMIN_PASS")
+# Tenta pegar do secrets do Streamlit primeiro (Prod), senão do .env (Local)
+admin_pass = st.secrets.get("ADMIN_PASS", os.getenv("ADMIN_PASS", "admin"))
 
 st.set_page_config(page_title="Bolão Copa 2026", layout="centered", initial_sidebar_state="collapsed")
 
