@@ -1,0 +1,23 @@
+# Ambientes Virtuais
+venv/
+env/
+.venv/
+
+# Variáveis de Ambiente e Segredos
+.env
+.streamlit/secrets.toml
+
+# Banco de Dados Local (Antigo)
+*.db
+*.sqlite3
+bolao.db
+
+# Cache do Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Arquivos do SO
+.DS_Store
+Thumbs.db
