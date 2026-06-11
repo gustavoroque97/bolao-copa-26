@@ -39,10 +39,6 @@ users_df = db.get_users_df()
 gabarito_df = db.get_gabarito_df()
 palpites_df = db.get_palpites_df()
 
-# Check deadline
-START_DATE = datetime(2026, 6, 11)
-is_before_deadline = datetime.now() < START_DATE
-
 # Auth State
 if "logged_user_id" not in st.session_state:
     st.session_state.logged_user_id = None
@@ -64,11 +60,7 @@ else:
 # --- TAB 1: LOGIN / CADASTRO (Not Logged In) ---
 if st.session_state.logged_user_id is None:
     with tab1:
-        if is_before_deadline:
-            auth_mode = st.radio("Selecione:", ["Entrar", "Novo Cadastro"], horizontal=True)
-        else:
-            st.warning("As inscrições se encerraram em 11/06/2026. Apenas usuários cadastrados podem fazer login.")
-            auth_mode = "Entrar"
+        auth_mode = st.radio("Selecione:", ["Entrar", "Novo Cadastro"], horizontal=True)
 
         if auth_mode == "Entrar":
             st.subheader("Login")
@@ -186,7 +178,7 @@ with tab2:
     st.markdown("""
     **1. Inscrições e Pagamento:**
     - Taxa de inscrição: R$ 30,00 via PIX.
-    - Prazo máximo para entrada: 11/06/2026.
+    - Inscrições abertas a qualquer momento.
     - Administrador confirmará o pagamento.
     
     **2. Sistema de Pontuação:**
