@@ -130,25 +130,21 @@ else:
                     match_id = row["match_id"]
                     val_a = 0
                     val_b = 0
-                    has_prediction = False
-                    
                     if not user_palpites.is_empty():
                         p = user_palpites.filter(pl.col("match_id") == match_id)
                         if not p.is_empty() and p["gols_a"][0] is not None and p["gols_b"][0] is not None:
                             val_a = p["gols_a"][0]
                             val_b = p["gols_b"][0]
-                            has_prediction = True
-
                     col1, col2, col3, col4, col5 = st.columns([2, 1, 0.5, 1, 2])
                     with col1:
                         st.write(f"**{row['time_a']}**")
                         st.caption(f"{row['data']}")
                     with col2:
-                        st.number_input("Gols A", min_value=0, max_value=20, value=val_a, key=f"p_a_{match_id}", label_visibility="collapsed", disabled=has_prediction)
+                        st.number_input("Gols A", min_value=0, max_value=20, value=val_a, key=f"p_a_{match_id}", label_visibility="collapsed")
                     with col3:
                         st.write("X")
                     with col4:
-                        st.number_input("Gols B", min_value=0, max_value=20, value=val_b, key=f"p_b_{match_id}", label_visibility="collapsed", disabled=has_prediction)
+                        st.number_input("Gols B", min_value=0, max_value=20, value=val_b, key=f"p_b_{match_id}", label_visibility="collapsed")
                     with col5:
                         st.write(f"**{row['time_b']}**")
                         
@@ -157,10 +153,6 @@ else:
                     for row in open_matches.iter_rows(named=True):
                         m_id = row["match_id"]
                         
-                        p = user_palpites.filter(pl.col("match_id") == m_id) if not user_palpites.is_empty() else None
-                        if p is not None and not p.is_empty() and p["gols_a"][0] is not None:
-                            continue # já foi palpitado e travado
-                            
                         a = st.session_state[f"p_a_{m_id}"]
                         b = st.session_state[f"p_b_{m_id}"]
                         palpites_lote.append({'match_id': m_id, 'gols_a': a, 'gols_b': b})
@@ -217,6 +209,7 @@ with tab4:
             st.warning("Este usuário ainda não palpitou.")
         else:
             st.write(f"Palpites de **{selected_view_user}**:")
+            st.caption("🎯 **Placar Exato** (3 pts) &nbsp;|&nbsp; ✅ **Acertou Vencedor/Empate** (1 pt) &nbsp;|&nbsp; ❌ **Errou** (0 pts)")
             gabarito_sorted = gabarito_df.sort(["fase", "data", "match_id"])
             current_fase_view = ""
             for row in gabarito_sorted.iter_rows(named=True):
@@ -228,7 +221,24 @@ with tab4:
                 if not p.is_empty():
                     ga = p["gols_a"][0]
                     gb = p["gols_b"][0]
-                    st.markdown(f"{row['data']} | **{row['time_a']}** {ga} x {gb} **{row['time_b']}**")
+                    
+                    emoji = ""
+                    if row["gols_a"] is not None and row["gols_b"] is not None:
+                        real_a = row["gols_a"]
+                        real_b = row["gols_b"]
+                        
+                        if ga == real_a and gb == real_b:
+                            emoji = " 🎯"
+                        else:
+                            tendencia_palpite = 1 if ga > gb else (-1 if ga < gb else 0)
+                            tendencia_real = 1 if real_a > real_b else (-1 if real_a < real_b else 0)
+                            
+                            if tendencia_palpite == tendencia_real:
+                                emoji = " ✅"
+                            else:
+                                emoji = " ❌"
+                                
+                    st.markdown(f"{row['data']} | **{row['time_a']}** {ga} x {gb} **{row['time_b']}**{emoji}")
                 else:
                     st.markdown(f"{row['data']} | **{row['time_a']}** - x - **{row['time_b']}** *(Sem palpite)*")
 
