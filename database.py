@@ -38,7 +38,7 @@ def init_db():
 
     # Garante que as 3 abas existam com os devidos cabeçalhos
     ws_users = _ensure_worksheet(sheet, "users", ['user_id', 'name', 'whatsapp', 'password', 'payment_status'])
-    ws_gabarito = _ensure_worksheet(sheet, "gabarito", ['match_id', 'fase', 'is_open', 'grupo', 'data', 'time_a', 'gols_a', 'time_b', 'gols_b'])
+    ws_gabarito = _ensure_worksheet(sheet, "gabarito", ['match_id', 'fase', 'is_open', 'grupo', 'data', 'horario', 'time_a', 'gols_a', 'time_b', 'gols_b'])
     ws_palpites = _ensure_worksheet(sheet, "palpites", ['palpite_id', 'user_id', 'match_id', 'gols_a', 'gols_b'])
 
     # Carregar jogos da fase de grupos iniciais se gabarito estiver vazio (apenas cabeçalho)
@@ -68,7 +68,7 @@ def get_gabarito_df() -> pl.DataFrame:
     try:
         ws = get_spreadsheet().worksheet("gabarito")
         data = ws.get_all_records()
-        df = pl.DataFrame(data) if data else pl.DataFrame(schema={'match_id': pl.Int64, 'fase': pl.Utf8, 'is_open': pl.Int64, 'grupo': pl.Utf8, 'data': pl.Utf8, 'time_a': pl.Utf8, 'gols_a': pl.Int64, 'time_b': pl.Utf8, 'gols_b': pl.Int64})
+        df = pl.DataFrame(data) if data else pl.DataFrame(schema={'match_id': pl.Int64, 'fase': pl.Utf8, 'is_open': pl.Int64, 'grupo': pl.Utf8, 'data': pl.Utf8, 'horario': pl.Utf8, 'time_a': pl.Utf8, 'gols_a': pl.Int64, 'time_b': pl.Utf8, 'gols_b': pl.Int64})
         
         # Converte string vazia para nulo
         df = df.with_columns([
@@ -124,12 +124,24 @@ def authenticate_user(name: str, password: str):
         return (match["user_id"][0], match["payment_status"][0])
     return None
 
-def insert_match(fase: str, grupo: str, data: str, time_a: str, time_b: str):
+def insert_match(fase: str, grupo: str, data: str, horario: str, time_a: str, time_b: str):
     gabarito_df = get_gabarito_df()
     new_id = int(gabarito_df["match_id"].max()) + 1 if not gabarito_df.is_empty() and gabarito_df["match_id"].max() is not None else 1
     
     ws = get_spreadsheet().worksheet("gabarito")
-    ws.append_row([new_id, fase, 0, grupo, data, time_a, "", time_b, ""])
+    headers = ws.row_values(1)
+    row_to_insert = [""] * len(headers)
+    
+    col_map = {
+        'match_id': new_id, 'fase': fase, 'is_open': 0, 'grupo': grupo, 
+        'data': data, 'horario': horario, 'time_a': time_a, 'time_b': time_b
+    }
+    
+    for col_name, value in col_map.items():
+        if col_name in headers:
+            row_to_insert[headers.index(col_name)] = value
+            
+    ws.append_row(row_to_insert)
     clear_cache()
 
 # Lote de atualização (BATCH) para o Admin

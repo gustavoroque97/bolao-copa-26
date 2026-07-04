@@ -3,6 +3,7 @@ import polars as pl
 import database as db
 import engine
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import os
 from dotenv import load_dotenv
 
@@ -37,7 +38,31 @@ except Exception as e:
 # Load data
 users_df = db.get_users_df()
 gabarito_df = db.get_gabarito_df()
+if not gabarito_df.is_empty():
+    gabarito_df = gabarito_df.with_columns(
+        pl.col("match_id").max().over("fase").alias("fase_order")
+    )
 palpites_df = db.get_palpites_df()
+
+def check_open_status(row):
+    if row["is_open"] == 0:
+        return 0
+    try:
+        data_str = str(row.get("data", "")).strip()
+        horario_str = str(row.get("horario", "")).strip()
+        if data_str and horario_str:
+            if len(horario_str) >= 5:
+                horario_str = horario_str[:5]
+            match_dt = datetime.strptime(f"{data_str} {horario_str}", "%Y-%m-%d %H:%M").replace(tzinfo=ZoneInfo("America/Sao_Paulo"))
+            if datetime.now(ZoneInfo("America/Sao_Paulo")) >= match_dt:
+                return 0
+    except Exception:
+        pass
+    return 1
+
+if not gabarito_df.is_empty():
+    auto_open_list = [check_open_status(row) for row in gabarito_df.iter_rows(named=True)]
+    gabarito_df = gabarito_df.with_columns(pl.Series("auto_is_open", auto_open_list))
 
 # Auth State
 if "logged_user_id" not in st.session_state:
@@ -115,7 +140,8 @@ else:
         
         user_palpites = palpites_df.filter(pl.col("user_id") == st.session_state.logged_user_id) if not palpites_df.is_empty() else pl.DataFrame()
         
-        open_matches = gabarito_df.filter(pl.col("is_open") == 1).sort(["fase", "data", "match_id"])
+        open_matches = gabarito_df.filter(pl.col("auto_is_open") == 1).sort(["fase_order", "data", "match_id"], descending=[True, False, False]) if not gabarito_df.is_empty() else pl.DataFrame()
+        closed_matches = gabarito_df.filter(pl.col("auto_is_open") == 0).sort(["fase_order", "data", "match_id"], descending=[True, False, False]) if not gabarito_df.is_empty() else pl.DataFrame()
         
         if open_matches.is_empty():
             st.info("Nenhuma fase aberta para apostas no momento.")
@@ -163,6 +189,25 @@ else:
                         st.rerun()
                     else:
                         st.info("Nenhum palpite novo para salvar.")
+                        
+        if not closed_matches.is_empty():
+            st.write("---")
+            st.subheader("Palpites Fechados (Jogos Encerrados ou em Andamento)")
+            current_fase = ""
+            for row in closed_matches.iter_rows(named=True):
+                if row["fase"] != current_fase:
+                    st.markdown(f"#### 🏆 {row['fase']}")
+                    current_fase = row["fase"]
+                
+                match_id = row["match_id"]
+                if not user_palpites.is_empty():
+                    p = user_palpites.filter(pl.col("match_id") == match_id)
+                    if not p.is_empty() and p["gols_a"][0] is not None and p["gols_b"][0] is not None:
+                        st.markdown(f"{row['data']} | **{row['time_a']}** {p['gols_a'][0]} x {p['gols_b'][0]} **{row['time_b']}**")
+                    else:
+                        st.markdown(f"{row['data']} | **{row['time_a']}** - x - **{row['time_b']}** *(Não palpitou)*")
+                else:
+                    st.markdown(f"{row['data']} | **{row['time_a']}** - x - **{row['time_b']}** *(Não palpitou)*")
 
 # --- TAB 2: REGRAS ---
 with tab2:
@@ -210,7 +255,7 @@ with tab4:
         else:
             st.write(f"Palpites de **{selected_view_user}**:")
             st.caption("🎯 **Placar Exato** (3 pts) &nbsp;|&nbsp; ✅ **Acertou Vencedor/Empate** (1 pt) &nbsp;|&nbsp; ❌ **Errou** (0 pts)")
-            gabarito_sorted = gabarito_df.sort(["fase", "data", "match_id"])
+            gabarito_sorted = gabarito_df.sort(["fase_order", "data", "match_id"], descending=[True, False, False])
             current_fase_view = ""
             for row in gabarito_sorted.iter_rows(named=True):
                 if row["fase"] != current_fase_view:
@@ -253,18 +298,20 @@ with tab5:
             with st.form("add_match"):
                 f_fase = st.selectbox("Fase", ["16-avos de Final", "Oitavas de Final", "Quartas de Final", "Semifinal", "Final"])
                 f_data = st.text_input("Data (ex: 2026-06-28)")
+                f_horario = st.text_input("Horário (ex: 16:00)")
                 f_time_a = st.text_input("Time A")
                 f_time_b = st.text_input("Time B")
                 if st.form_submit_button("Inserir Jogo"):
-                    db.insert_match(f_fase, "", f_data, f_time_a, f_time_b)
+                    db.insert_match(f_fase, "", f_data, f_horario, f_time_a, f_time_b)
                     st.success("Jogo inserido! (Ele entra bloqueado por padrão)")
                     st.rerun()
 
         st.write("---")
+        st.write("---")
         st.subheader("Gerenciar Jogos (Resultados e Liberação)")
         if not gabarito_df.is_empty():
             with st.form("admin_manage_form"):
-                for row in gabarito_df.sort(["fase", "data", "match_id"]).iter_rows(named=True):
+                for row in gabarito_df.sort(["fase_order", "data", "match_id"], descending=[True, False, False]).iter_rows(named=True):
                     m_id = row["match_id"]
                     played = row["gols_a"] is not None
                     val_a = row["gols_a"] if played else 0
