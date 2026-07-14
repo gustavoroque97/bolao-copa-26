@@ -59,7 +59,7 @@ def get_users_df() -> pl.DataFrame:
     try:
         ws = get_spreadsheet().worksheet("users")
         data = ws.get_all_records()
-        return pl.DataFrame(data) if data else pl.DataFrame(schema={'user_id': pl.Int64, 'name': pl.Utf8, 'whatsapp': pl.Utf8, 'password': pl.Utf8, 'payment_status': pl.Utf8})
+        return pl.DataFrame(data, schema_overrides={'user_id': pl.Int64}) if data else pl.DataFrame(schema={'user_id': pl.Int64, 'name': pl.Utf8, 'whatsapp': pl.Utf8, 'password': pl.Utf8, 'payment_status': pl.Utf8})
     except Exception:
         return pl.DataFrame()
 
@@ -68,7 +68,7 @@ def get_gabarito_df() -> pl.DataFrame:
     try:
         ws = get_spreadsheet().worksheet("gabarito")
         data = ws.get_all_records()
-        df = pl.DataFrame(data) if data else pl.DataFrame(schema={'match_id': pl.Int64, 'fase': pl.Utf8, 'is_open': pl.Int64, 'grupo': pl.Utf8, 'data': pl.Utf8, 'horario': pl.Utf8, 'time_a': pl.Utf8, 'gols_a': pl.Int64, 'time_b': pl.Utf8, 'gols_b': pl.Int64})
+        df = pl.DataFrame(data, schema_overrides={'match_id': pl.Int64, 'gols_a': pl.Utf8, 'gols_b': pl.Utf8}) if data else pl.DataFrame(schema={'match_id': pl.Int64, 'fase': pl.Utf8, 'is_open': pl.Int64, 'grupo': pl.Utf8, 'data': pl.Utf8, 'horario': pl.Utf8, 'time_a': pl.Utf8, 'gols_a': pl.Int64, 'time_b': pl.Utf8, 'gols_b': pl.Int64})
         
         # Converte string vazia para nulo
         df = df.with_columns([
@@ -84,7 +84,7 @@ def get_palpites_df() -> pl.DataFrame:
     try:
         ws = get_spreadsheet().worksheet("palpites")
         data = ws.get_all_records()
-        df = pl.DataFrame(data) if data else pl.DataFrame(schema={'palpite_id': pl.Int64, 'user_id': pl.Int64, 'match_id': pl.Int64, 'gols_a': pl.Int64, 'gols_b': pl.Int64})
+        df = pl.DataFrame(data, schema_overrides={'match_id': pl.Int64, 'user_id': pl.Int64, 'gols_a': pl.Utf8, 'gols_b': pl.Utf8}) if data else pl.DataFrame(schema={'palpite_id': pl.Int64, 'user_id': pl.Int64, 'match_id': pl.Int64, 'gols_a': pl.Int64, 'gols_b': pl.Int64})
         
         # Converte string vazia para nulo
         df = df.with_columns([
